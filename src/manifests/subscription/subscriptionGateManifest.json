@@ -1,0 +1,82 @@
+{
+  "schemaVersion": "1.0",
+  "gates": [
+    {
+      "key": "runninghubVideoV54",
+      "modelId": "runninghub/2041741496667348994",
+      "workflowId": "2041741496667348994",
+      "displayName": "\u89c6\u9891\u7f16\u8f91V5.4",
+      "aliases": [
+        "video_edit_v54",
+        "video_edit.pro"
+      ],
+      "legacyAliases": [
+        {
+          "value": "2041741496667348994",
+          "deleteWhen": "Remove after subscriptionAccess tests, backend subscription gate tests, entitlement payloads, and saved projects all stop accepting bare RunningHub workflow IDs for this gate."
+        }
+      ]
+    },
+    {
+      "key": "runninghubVideoHd",
+      "modelId": "runninghub/2047787809091620866",
+      "workflowId": "2047787809091620866",
+      "displayName": "\u89c6\u9891\u9ad8\u6e05",
+      "aliases": [
+        "video_hd_vip",
+        "video_hd.pro",
+        "ai-app/2047787809091620866"
+      ],
+      "legacyAliases": [
+        {
+          "value": "2047787809091620866",
+          "deleteWhen": "Remove after subscriptionAccess tests, backend subscription gate tests, entitlement payloads, and saved projects all stop accepting bare RunningHub workflow IDs for this gate."
+        }
+      ]
+    },
+    {
+      "key": "runninghubCommercialDigitalHuman",
+      "modelId": "runninghub/2055639633148563458",
+      "workflowId": "2055639633148563458",
+      "displayName": "\u5546\u4e1a\u7ea7\u6570\u5b57\u4eba",
+      "aliases": [
+        "commercial_digital_human",
+        "commercial_digital_human.pro",
+        "ai-app/2055639633148563458"
+      ]
+    },
+    {
+      "key": "runninghubAdvancedVoiceClone",
+      "modelId": "runninghub/2050165249344585729",
+      "workflowId": "2050165249344585729",
+      "displayName": "\u8fdb\u9636\u58f0\u97f3\u514b\u9686",
+      "aliases": [
+        "advanced_voice_clone",
+        "voice_clone.pro",
+        "ai-app/2050165249344585729"
+      ],
+      "legacyAliases": [
+        {
+          "value": "2050165249344585729",
+          "deleteWhen": "Remove after subscriptionAccess tests, backend subscription gate tests, entitlement payloads, and saved projects all stop accepting bare RunningHub workflow IDs for this gate."
+        }
+      ]
+    },
+    {
+      "key": "dreaminaVideoVip",
+      "modelId": "dreamina/video_vip",
+      "workflowId": "",
+      "displayName": "\u5373\u68a6\u89c6\u9891",
+      "aliases": [
+        "dreamina_video_vip",
+        "dreamina.video_vip"
+      ],
+      "providers": [
+        "dreamina"
+      ],
+      "modelPrefixes": [
+        "dreamina/"
+      ]
+    }
+  ]
+}

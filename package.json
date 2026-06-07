@@ -1,0 +1,120 @@
+{
+  "name": "ai-canvaspro",
+  "private": true,
+  "version": "0.4.8",
+  "description": "AI CanvasPro desktop editor",
+  "author": "AI CanvasPro",
+  "type": "module",
+  "main": "electron/main.js",
+    "scripts": {
+    "clean": "node scripts/clean-dist.mjs",
+    "diagnose": "node scripts/diagnose.mjs",
+    "verify:package": "node scripts/verify-package.mjs",
+    "desktop": "electron .",
+    "start": "electron .",
+    "build:dir": "npm run clean && electron-builder --dir",
+    "dist:portable": "npm run clean && electron-builder --win portable",
+    "dist:win": "npm run dist:portable",
+    "dist:win-installer": "npm run clean && electron-builder --win nsis"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3",
+    "yazl": "^3.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "electron": "^41.3.0",
+    "electron-builder": "^26.8.1",
+    "husky": "^9.1.7"
+  },
+  "build": {
+    "appId": "com.aicanvaspro.desktop",
+    "productName": "AI CanvasPro",
+    "copyright": "Copyright © 2026 AI CanvasPro",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "src/modules/webPreviewUrl.js",
+      "src/services/desktopProjectFileStore.js",
+      "package.json",
+      "!**/*.test.js",
+      "!playwright.config.js",
+      "!docs/**/*",
+      "!.github/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": ".",
+        "to": "app-web",
+        "filter": [
+          "api/**/*",
+          "assets/**/*",
+          "backend/**/*",
+          "build/**/*",
+          "images/**/*",
+          "native/**/*",
+          "src/**/*",
+          "styles/**/*",
+          "vendor/**/*",
+          "index.html",
+          "main.js",
+          "server.py",
+          "style.css",
+          "requirements.txt",
+          "README.md",
+          "LICENSE",
+          "COMMERCIAL-LICENSE.md",
+          "release_notes.txt",
+          "使用说明.md",
+          "!**/*.test.js",
+          "!playwright.config.js",
+          "!docs/**/*",
+          "!.github/**/*"
+        ]
+      },
+      {
+        "from": "desktop-runtime/runtime",
+        "to": "runtime",
+        "filter": [
+          "**/*",
+          "!python/Lib/test/**/*",
+          "!python/Lib/**/__pycache__/**/*",
+          "!python/Lib/site-packages/**/test/**/*",
+          "!python/Lib/site-packages/**/tests/**/*",
+          "!python/Lib/site-packages/**/testing/tests/**/*",
+          "!python/Lib/**/*.pyc",
+          "!python/Lib/**/*.pyo",
+          "!python/Lib/ensurepip/**/*",
+          "!python/Lib/idlelib/**/*",
+          "!python/Lib/venv/**/*",
+          "!python/Lib/tkinter/**/*",
+          "!python/Lib/site-packages/pip/**/*",
+          "!python/Lib/site-packages/pip-*.dist-info/**/*",
+          "!python/Scripts/pip*.exe"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "build/app-icon.ico",
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "portable": {
+      "artifactName": "AI-CanvasPro-${version}-win-${arch}.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "AI-CanvasPro-Setup-${version}-${arch}.exe"
+    }
+  }
+}

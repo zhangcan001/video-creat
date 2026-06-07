@@ -1,0 +1,226 @@
+name: Mac ARM64 package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Optional version override. Leave empty to read index.html.
+        required: false
+        type: string
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: "20"
+  ELECTRON_VERSION: "41.3.0"
+  ELECTRON_BUILDER_VERSION: "26.8.1"
+  PYTHON_STANDALONE_URL: "https://github.com/astral-sh/python-build-standalone/releases/download/20240224/cpython-3.11.8+20240224-aarch64-apple-darwin-install_only.tar.gz"
+
+jobs:
+  build-mac-arm64:
+    runs-on: macos-15
+    steps:
+      - name: Checkout obfuscated release repo
+        uses: actions/checkout@v4
+
+      - name: Assert Apple Silicon runner
+        run: |
+          test "$(uname -m)" = "arm64"
+          sw_vers
+
+      - name: Resolve version
+        id: version
+        shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          node <<'NODE'
+          const fs = require("fs");
+          const inputVersion = String(process.env.INPUT_VERSION || "").trim();
+          const html = fs.existsSync("index.html") ? fs.readFileSync("index.html", "utf8") : "";
+          const match = html.match(/<meta\s+name=["']app-version["']\s+content=["']([^"']+)["']/i);
+          const version = inputVersion || String(match?.[1] || "").trim();
+          if (!/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(version)) {
+            throw new Error(`Invalid release version: ${version || "<missing>"}`);
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `tag=v${version}\n`);
+          NODE
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install package dependencies
+        run: npm install --omit=dev --no-audit --no-fund
+
+      - name: Install build-only tooling
+        run: |
+          npm install --no-save --no-audit --no-fund \
+            electron-builder@${ELECTRON_BUILDER_VERSION} \
+            electron@${ELECTRON_VERSION} \
+            @ffmpeg-installer/ffmpeg@1.1.0 \
+            @ffprobe-installer/ffprobe@2.1.2
+
+      - name: Prepare macOS arm64 runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .electron-runtime
+          mkdir -p .electron-runtime/staging .electron-runtime/runtime
+
+          curl --fail --location --retry 3 \
+            --output .electron-runtime/staging/python.tar.gz \
+            "$PYTHON_STANDALONE_URL"
+          mkdir -p .electron-runtime/staging/python-download
+          tar -xzf .electron-runtime/staging/python.tar.gz \
+            -C .electron-runtime/staging/python-download
+          test -x .electron-runtime/staging/python-download/python/bin/python3
+          mv .electron-runtime/staging/python-download/python \
+            .electron-runtime/runtime/python
+
+          PYTHON_BIN=".electron-runtime/runtime/python/bin/python3"
+          "$PYTHON_BIN" -m ensurepip --upgrade || true
+          "$PYTHON_BIN" -m pip install --upgrade --no-cache-dir pip
+          "$PYTHON_BIN" -m pip install --no-cache-dir -r requirements.txt
+
+          PYTHONDONTWRITEBYTECODE=1 "$PYTHON_BIN" - <<'PY'
+          import requests
+          from PIL import Image
+          import cv2
+          import scenedetect
+          cap = cv2.VideoCapture()
+          cap.release()
+          print("python runtime smoke ok")
+          PY
+
+          mkdir -p .electron-runtime/runtime/ffmpeg/bin
+          FFMPEG_SOURCE="$(node -e 'process.stdout.write(require("@ffmpeg-installer/ffmpeg").path)')"
+          FFPROBE_SOURCE="$(node -e 'process.stdout.write(require("@ffprobe-installer/ffprobe").path)')"
+          cp "$FFMPEG_SOURCE" .electron-runtime/runtime/ffmpeg/bin/ffmpeg
+          cp "$FFPROBE_SOURCE" .electron-runtime/runtime/ffmpeg/bin/ffprobe
+          chmod +x .electron-runtime/runtime/ffmpeg/bin/ffmpeg
+          chmod +x .electron-runtime/runtime/ffmpeg/bin/ffprobe
+          .electron-runtime/runtime/ffmpeg/bin/ffmpeg -version >/dev/null
+          .electron-runtime/runtime/ffmpeg/bin/ffprobe -version >/dev/null
+
+          find .electron-runtime/runtime/python -type d -name "__pycache__" -prune -exec rm -rf {} +
+          find .electron-runtime/runtime/python -type f \( -name "*.pyc" -o -name "*.pyo" \) -delete
+          rm -rf .electron-runtime/staging
+          du -sh .electron-runtime/runtime/python .electron-runtime/runtime/ffmpeg
+
+      - name: Write macOS electron-builder config
+        run: |
+          cat > electron-builder.mac-arm64.cjs <<'EOF'
+          module.exports = {
+            appId: "com.aicanvaspro.editor",
+            productName: "AI CanvasPro",
+            copyright: "Copyright (c) 2026 AI CanvasPro",
+            asar: false,
+            directories: {
+              output: "dist-mac",
+            },
+            files: [
+              "api/**/*",
+              "assets/**/*",
+              "backend/**/*",
+              "electron/**/*",
+              "images/**/*",
+              "src/**/*",
+              "styles/**/*",
+              "vendor/**/*",
+              "index.html",
+              "style.css",
+              "main.js",
+              "server.py",
+              "requirements.txt",
+              "release_notes.txt",
+              "package.json",
+              "!**/*.test.js",
+              "!**/*.test.mjs",
+              "!**/*.spec.js",
+              "!**/*.map",
+              "!**/*.pyc",
+              "!**/__pycache__/**",
+              "!**/tests/**",
+              "!**/test-results/**",
+              "!**/playwright-report/**"
+            ],
+            extraResources: [
+              {
+                from: ".electron-runtime/runtime/python",
+                to: "runtime/python"
+              },
+              {
+                from: ".electron-runtime/runtime/ffmpeg",
+                to: "runtime/ffmpeg"
+              }
+            ],
+            mac: {
+              category: "public.app-category.graphics-design",
+              target: [
+                { target: "dmg", arch: ["arm64"] },
+                { target: "zip", arch: ["arm64"] }
+              ],
+              artifactName: "AI-CanvasPro-Mac-${arch}-${version}.${ext}"
+            },
+            dmg: {
+              artifactName: "AI-CanvasPro-Mac-${arch}-${version}.${ext}"
+            },
+            fileAssociations: [
+              {
+                ext: ["aicanvas", "aicproj"],
+                name: "AI CanvasPro Project",
+                description: "AI CanvasPro Project"
+              }
+            ]
+          };
+          EOF
+
+      - name: Build unsigned macOS arm64 package
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --mac dmg zip --arm64 --config electron-builder.mac-arm64.cjs --publish never
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-arm64-${{ steps.version.outputs.version }}
+          if-no-files-found: error
+          path: |
+            dist-mac/*.dmg
+            dist-mac/*.zip
+            dist-mac/latest-mac.yml
+
+      - name: Upload GitHub Release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          ASSETS=()
+          while IFS= read -r asset; do
+            ASSETS+=("$asset")
+          done < <(find dist-mac -type f \( \
+            -name "*.dmg" -o \
+            -name "*.zip" -o \
+            -name "latest-mac.yml" \
+          \) | sort)
+          if [ "${#ASSETS[@]}" -eq 0 ]; then
+            echo "No macOS release assets found."
+            exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${ASSETS[@]}" --clobber
+          else
+            gh release create "$TAG" "${ASSETS[@]}" \
+              --title "AI CanvasPro v$VERSION" \
+              --notes "macOS Apple Silicon build for AI CanvasPro v$VERSION"
+          fi
